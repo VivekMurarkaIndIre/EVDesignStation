@@ -1,11 +1,11 @@
-import { Alert, Divider, Empty, List, Space, Typography } from "antd";
+import { Alert, Carousel, Divider, Empty, List, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { SessionCard } from "../components/SessionCard";
 import { StationGrid } from "../components/StationGrid";
 import { useMySessions } from "../hooks/useMySessions";
 import { useStations } from "../hooks/useStations";
 
-const STOPPED_SESSIONS_PAGE_SIZE = 5;
+const STOPPED_SESSIONS_PAGE_SIZE = 6;
 
 export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
   const navigate = useNavigate();
@@ -52,18 +52,30 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
           <Typography.Title level={5}>Active</Typography.Title>
           {activeSessions.length === 0 ? (
             <Typography.Text type="secondary">No active sessions.</Typography.Text>
+          ) : activeSessions.length === 1 ? (
+            <div style={{ maxWidth: 480 }}>
+              <SessionCard
+                session={activeSessions[0]}
+                station={stationsById.get(activeSessions[0].stationId)}
+                onStop={handleStop}
+                stopping={pendingStopIds.has(activeSessions[0].id)}
+              />
+            </div>
           ) : (
-            <Space direction="vertical" style={{ width: "100%" }} size={16}>
-              {activeSessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  station={stationsById.get(session.stationId)}
-                  onStop={handleStop}
-                  stopping={pendingStopIds.has(session.id)}
-                />
-              ))}
-            </Space>
+            <div style={{ maxWidth: 560 }}>
+              <Carousel arrows dots infinite={false} style={{ padding: "0 40px 32px" }}>
+                {activeSessions.map((session) => (
+                  <div key={session.id}>
+                    <SessionCard
+                      session={session}
+                      station={stationsById.get(session.stationId)}
+                      onStop={handleStop}
+                      stopping={pendingStopIds.has(session.id)}
+                    />
+                  </div>
+                ))}
+              </Carousel>
+            </div>
           )}
 
           {stoppedSessions.length > 0 && (
@@ -72,9 +84,10 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
               <Typography.Title level={5}>History</Typography.Title>
               <List
                 dataSource={stoppedSessions}
+                grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 4 }}
                 pagination={{ pageSize: STOPPED_SESSIONS_PAGE_SIZE, showSizeChanger: false }}
                 renderItem={(session) => (
-                  <List.Item style={{ border: "none", padding: 0, marginBottom: 16 }}>
+                  <List.Item>
                     <SessionCard
                       session={session}
                       station={stationsById.get(session.stationId)}
@@ -83,7 +96,6 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
                     />
                   </List.Item>
                 )}
-                style={{ width: "100%" }}
               />
             </>
           )}
