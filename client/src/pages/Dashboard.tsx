@@ -1,4 +1,4 @@
-import { Alert, Carousel, Divider, Empty, List, Typography } from "antd";
+import { Alert, Carousel, Divider, Empty, Grid, List, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { SessionCard } from "../components/SessionCard";
 import { StationGrid } from "../components/StationGrid";
@@ -7,10 +7,23 @@ import { useStations } from "../hooks/useStations";
 
 const STOPPED_SESSIONS_PAGE_SIZE = 6;
 
+// How many ~320px-wide session cards comfortably fit side by side at each
+// breakpoint's content width. The carousel only slides when there are more
+// active sessions than this — it's not a one-card-per-slide carousel.
+function useActiveSessionsPerView(): number {
+  const screens = Grid.useBreakpoint();
+  if (screens.xxl) return 4;
+  if (screens.xl) return 3;
+  if (screens.lg) return 3;
+  if (screens.md) return 2;
+  return 1;
+}
+
 export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
   const navigate = useNavigate();
   const { stations, loading: stationsLoading, error: stationsError, refresh: refreshStations } = useStations();
   const { sessions, start, stop, pendingStationIds, pendingStopIds, error: sessionError } = useMySessions();
+  const perView = useActiveSessionsPerView();
 
   const handleStart = async (stationId: string) => {
     const result = await start(stationId);
@@ -32,6 +45,7 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
   const errorMessage = sessionError ?? stationsError;
   const activeSessions = sessions.filter((session) => session.endTime === null);
   const stoppedSessions = sessions.filter((session) => session.endTime !== null);
+  const slidesToShow = Math.min(perView, Math.max(activeSessions.length, 1));
 
   return (
     <>
@@ -52,30 +66,24 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
           <Typography.Title level={5}>Active</Typography.Title>
           {activeSessions.length === 0 ? (
             <Typography.Text type="secondary">No active sessions.</Typography.Text>
-          ) : activeSessions.length === 1 ? (
-            <div style={{ maxWidth: 480 }}>
-              <SessionCard
-                session={activeSessions[0]}
-                station={stationsById.get(activeSessions[0].stationId)}
-                onStop={handleStop}
-                stopping={pendingStopIds.has(activeSessions[0].id)}
-              />
-            </div>
           ) : (
-            <div style={{ maxWidth: 560 }}>
-              <Carousel arrows dots infinite={false} style={{ padding: "0 40px 32px" }}>
-                {activeSessions.map((session) => (
-                  <div key={session.id}>
-                    <SessionCard
-                      session={session}
-                      station={stationsById.get(session.stationId)}
-                      onStop={handleStop}
-                      stopping={pendingStopIds.has(session.id)}
-                    />
-                  </div>
-                ))}
-              </Carousel>
-            </div>
+            <Carousel
+              dots={activeSessions.length > perView}
+              infinite={false}
+              slidesToShow={slidesToShow}
+              slidesToScroll={perView}
+            >
+              {activeSessions.map((session) => (
+                <div key={session.id} style={{ paddingRight: 16 }}>
+                  <SessionCard
+                    session={session}
+                    station={stationsById.get(session.stationId)}
+                    onStop={handleStop}
+                    stopping={pendingStopIds.has(session.id)}
+                  />
+                </div>
+              ))}
+            </Carousel>
           )}
 
           {stoppedSessions.length > 0 && (

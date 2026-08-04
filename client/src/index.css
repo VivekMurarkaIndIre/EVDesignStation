@@ -6,34 +6,6 @@ body {
   margin: 0;
 }
 
-/* antd's Carousel arrows default to a style meant for dark image
-   backdrops; the active-sessions carousel sits on a light card, so give
-   the arrows their own visible, always-on treatment. */
-.ant-carousel .slick-prev,
-.ant-carousel .slick-next {
-  z-index: 1;
-  width: 32px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 50%;
-  opacity: 1;
-}
-.ant-carousel .slick-prev:hover,
-.ant-carousel .slick-next:hover {
-  background: rgba(0, 0, 0, 0.65);
-}
-.ant-carousel .slick-prev::before,
-.ant-carousel .slick-next::before {
-  font-size: 14px;
-  opacity: 1;
-}
-.ant-carousel .slick-prev {
-  left: 0;
-}
-.ant-carousel .slick-next {
-  right: 0;
-}
-
 /* !important: antd injects its own Carousel theme via CSS-in-JS at
    runtime, after this stylesheet, so an equal-specificity override
    here loses the source-order tiebreak without it. */
