@@ -1,3 +1,35 @@
-// Shared types between client and server land here in Phase 2
-// (Station, Session, RateSchedule, API DTOs).
-export const SHARED_PACKAGE_READY = true;
+export type StationStatus = "available" | "occupied";
+
+export interface Station {
+  id: string;
+  name: string;
+  location: string;
+  chargingSpeedKw: number;
+  status: StationStatus;
+}
+
+export interface CostBreakdown {
+  peakKwh: number;
+  offPeakKwh: number;
+  peakCost: number;
+  offPeakCost: number;
+  totalKwh: number;
+  totalCost: number;
+}
+
+export interface Session {
+  id: string;
+  stationId: string;
+  startTime: string; // ISO 8601
+  endTime: string | null; // ISO 8601, null while active
+  energyUsedKwh: number | null; // null until stopped
+  cost: number | null; // null until stopped
+  costBreakdown: CostBreakdown | null; // null until stopped
+}
+
+export interface RateSchedule {
+  peakRatePerKwh: number;
+  offPeakRatePerKwh: number;
+  peakStartHour: number; // e.g. 8 for 08:00
+  peakEndHour: number; // e.g. 20 for 20:00
+}
