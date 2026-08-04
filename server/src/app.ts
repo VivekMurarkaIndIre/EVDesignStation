@@ -1,3 +1,4 @@
+import cors from "cors";
 import express, { type RequestHandler } from "express";
 import type { RateSchedule } from "./models/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
@@ -33,6 +34,7 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
   const sessionService = createSessionService({ sessionRepository, stationRepository, rateSchedule, now });
 
   const app = express();
+  app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
   app.use(express.json());
 
   app.get("/health", (_req, res) => {

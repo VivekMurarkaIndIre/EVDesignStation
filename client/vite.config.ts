@@ -10,9 +10,4 @@ export default defineConfig({
       '@ev/shared': path.resolve(import.meta.dirname, '../shared/src'),
     },
   },
-  server: {
-    proxy: {
-      '/api': 'http://localhost:4000',
-    },
-  },
 })
