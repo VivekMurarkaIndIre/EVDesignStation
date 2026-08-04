@@ -5,6 +5,21 @@ see a cost breakdown that splits peak vs. off-peak energy and cost —
 because a session that spans both bands should be billed for time actually
 spent in each, not a flat rate for the whole thing.
 
+**Live demo**: https://ev-design-station-server-oir2.vercel.app/
+(backend: https://ev-charging-server-u19y.onrender.com — free-tier, see
+cold-start note under Deploying). There's a reset button in the header
+(top-right, next to the wallet balance) if you want a clean slate after
+poking around — see "Reset demo data" further down.
+
+## Screenshots
+
+| | |
+|---|---|
+| **Stations — grid view**<br>![Station grid](docs/screenshots/dashboard-grid.png) | **Stations — map view**<br>![Station map](docs/screenshots/dashboard-map.png) |
+| **Active session**, live cost-so-far and time-left estimate<br>![Active session](docs/screenshots/active-session.png) | **Stopped session**, peak/off-peak cost split<br>![Cost breakdown](docs/screenshots/cost-breakdown.png) |
+| **Transactions** — full wallet audit log<br>![Transactions](docs/screenshots/transactions.png) | **Load Funds** — intentional stub<br>![Load Funds](docs/screenshots/load-funds.png) |
+| **First-visit walkthrough tour**<br>![Walkthrough tour](docs/screenshots/walkthrough-tour.png) | |
+
 ## Tech stack
 
 - **Frontend**: React + Vite + TypeScript, Ant Design (antd), React Router,
@@ -224,6 +239,28 @@ have poked at it) can get back to a clean slate without restarting the
 server — it's a testing convenience, not a feature a real product would
 expose to end users.
 
+**First-visit walkthrough tour (added beyond the original spec).**
+`antd`'s `Tour` component (already a dependency — no new package) spotlights
+five things in order, first time the app loads in a given browser: the
+Grid/Map toggle, Active sessions, History, Transactions, and the reset
+button. A "?" icon next to the Stations heading re-opens it anytime after
+that.
+
+- Targets DOM elements by `id` rather than refs, so `Dashboard.tsx` can
+  point the tour at elements owned by `App.tsx`'s header (nav, reset
+  button) without threading refs down through the component tree.
+- History gracefully degrades to a centered, non-spotlit step when it
+  doesn't exist yet in the DOM — true for every first-time visitor, since
+  a session has to be stopped once before History renders at all.
+- The "seen" flag uses a lazy `useState` initializer
+  (`useState(() => !localStorage.getItem(...))`), not an effect +
+  `setTimeout`. An effect-based version raced React 18 StrictMode's
+  double-invoked effects in dev: the first mount's cleanup canceled the
+  timer before it fired, and the second mount saw the flag the first one
+  had already written and skipped rescheduling, so the tour silently never
+  opened. Caught by actually running it in a browser, not by reasoning
+  about the code.
+
 ## Assumptions
 
 - **Peak/off-peak boundaries are evaluated in UTC**, not server-local or
@@ -313,16 +350,25 @@ URL, so deploy in this order rather than trying to do both at once:
 
 1. **Backend → Render.** Push this repo to GitHub, then in Render:
    "New +" → "Blueprint" → point it at the repo. `render.yaml` at the repo
-   root already defines the service (`npm install && npm run build:server`
-   to build, `npm run start:server` to run, health check at `/health`) —
-   Render will prompt you to fill in the one env var marked `sync: false`
-   in that file, `CORS_ORIGIN`. Leave it as a placeholder
-   (`https://placeholder.vercel.app`) for now; you'll come back and fix it
-   in step 3. `NODE_ENV=production` is already set by the blueprint, which
-   means `CORS_ORIGIN` is *required* — the app fails fast at startup
-   without it, on purpose (see Architecture above). `PORT` is injected by
-   Render itself; don't set it. Once deployed, copy the service's public
-   URL (`https://<something>.onrender.com`).
+   root already defines the service (`npm install --include=dev && npm
+   run build:server` to build, `npm run start:server` to run, health check
+   at `/health`) — Render will prompt you to fill in the one env var
+   marked `sync: false` in that file, `CORS_ORIGIN`. Leave it as a
+   placeholder (`https://placeholder.vercel.app`) for now; you'll come
+   back and fix it in step 3. `NODE_ENV=production` is already set by the
+   blueprint, which means `CORS_ORIGIN` is *required* — the app fails fast
+   at startup without it, on purpose (see Architecture above). `PORT` is
+   injected by Render itself; don't set it. Once deployed, copy the
+   service's public URL (`https://<something>.onrender.com`).
+   (The `--include=dev` matters: `npm install` silently skips
+   `devDependencies` whenever `NODE_ENV=production` is set in the
+   environment — which it is here, for both build and runtime, since
+   Render applies the same env vars to both. Without it, the build fails
+   with a wall of `Cannot find name 'process'` / `Cannot find module
+   'vitest'` errors, since `typescript`'s own `@types/node`, `@types/
+   express`, and `vitest` are all devDependencies needed to type-check and
+   build, even though none of them are needed at runtime. Hit this for
+   real while setting this up — it's not hypothetical.)
 2. **Frontend → Vercel.** "Add New" → "Project" → import the same repo,
    **without** overriding the root directory (leave it as the repo root —
    `vercel.json` at the root already points the build at `client/` and
