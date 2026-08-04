@@ -29,8 +29,8 @@ export function getStations(): Promise<Station[]> {
   return request<Station[]>("/stations");
 }
 
-export function startSession(stationId: string): Promise<Session> {
-  return request<Session>("/sessions", { method: "POST", body: JSON.stringify({ stationId }) });
+export function startSession(stationId: string, autoStopAfterMinutes?: number): Promise<Session> {
+  return request<Session>("/sessions", { method: "POST", body: JSON.stringify({ stationId, autoStopAfterMinutes }) });
 }
 
 export function stopSession(sessionId: string): Promise<Session> {

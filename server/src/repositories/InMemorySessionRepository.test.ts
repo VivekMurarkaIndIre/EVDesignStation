@@ -11,6 +11,8 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     energyUsedKwh: null,
     cost: null,
     costBreakdown: null,
+    autoStopAt: null,
+    stopReason: null,
     ...overrides,
   };
 }
@@ -39,5 +41,15 @@ describe("InMemorySessionRepository", () => {
     const saved = await repo.save(makeSession());
     saved.cost = 999;
     expect((await repo.findById("session-1"))?.cost).toBeNull();
+  });
+
+  it("findActive returns only sessions with a null endTime", async () => {
+    const repo = new InMemorySessionRepository();
+    await repo.save(makeSession({ id: "active-1" }));
+    await repo.save(makeSession({ id: "stopped-1", endTime: "2026-01-01T11:00:00.000Z" }));
+    await repo.save(makeSession({ id: "active-2" }));
+
+    const active = await repo.findActive();
+    expect(active.map((s) => s.id).sort()).toEqual(["active-1", "active-2"]);
   });
 });

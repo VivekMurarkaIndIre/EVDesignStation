@@ -18,7 +18,7 @@ import { createWalletController } from "./controllers/walletController.js";
 import { createSessionRouter } from "./routes/sessions.js";
 import { createStationRouter } from "./routes/stations.js";
 import { createWalletRouter } from "./routes/wallet.js";
-import { createSessionService } from "./services/sessionService.js";
+import { createSessionService, type SessionService } from "./services/sessionService.js";
 import { createStationService } from "./services/stationService.js";
 import { createWalletService } from "./services/walletService.js";
 
@@ -29,6 +29,16 @@ export interface AppDependencies {
   rateSchedule: RateSchedule;
   now: () => Date;
   sessionActionRateLimiter: RequestHandler;
+}
+
+/** Shape of app.locals.deps — lets the server entrypoint build a sessionMonitor from the same instances createApp wired up, without createApp starting a live timer itself (see note below). */
+export interface AppLocals {
+  sessionRepository: SessionRepository;
+  stationRepository: StationRepository;
+  walletRepository: WalletRepository;
+  sessionService: SessionService;
+  rateSchedule: RateSchedule;
+  now: () => Date;
 }
 
 export function createApp(deps: Partial<AppDependencies> = {}) {
@@ -74,6 +84,13 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
 
   app.use(notFoundHandler);
   app.use(errorHandler);
+
+  // Exposed so the server entrypoint can start a sessionMonitor against the
+  // exact same repositories/service this app uses, without createApp itself
+  // starting a live setInterval — tests call createApp() directly, many
+  // times, with no teardown, and would otherwise leak timers.
+  const locals: AppLocals = { sessionRepository, stationRepository, walletRepository, sessionService, rateSchedule, now };
+  app.locals.deps = locals;
 
   return app;
 }

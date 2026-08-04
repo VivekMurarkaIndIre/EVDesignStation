@@ -4,4 +4,6 @@ export interface SessionRepository {
   /** Insert or update by id. */
   save(session: Session): Promise<Session>;
   findById(id: string): Promise<Session | undefined>;
+  /** All sessions with endTime === null. */
+  findActive(): Promise<Session[]>;
 }

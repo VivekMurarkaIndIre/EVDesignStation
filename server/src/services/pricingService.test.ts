@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RateSchedule } from "../models/index.js";
-import { calculateCost } from "./pricingService.js";
+import { calculateCost, currentRatePerKwh, estimateSecondsRemaining } from "./pricingService.js";
 
 const SCHEDULE: RateSchedule = {
   peakRatePerKwh: 0.35,
@@ -124,5 +124,34 @@ describe("calculateCost", () => {
     expect(() => calculateCost(at("2026-01-05T10:00:00Z"), at("2026-01-05T11:00:00Z"), -5, SCHEDULE)).toThrow(
       RangeError,
     );
+  });
+});
+
+describe("currentRatePerKwh", () => {
+  it("returns the peak rate during peak hours", () => {
+    expect(currentRatePerKwh(at("2026-01-05T10:00:00Z"), SCHEDULE)).toBe(0.35);
+  });
+
+  it("returns the off-peak rate outside peak hours", () => {
+    expect(currentRatePerKwh(at("2026-01-05T22:00:00Z"), SCHEDULE)).toBe(0.18);
+  });
+});
+
+describe("estimateSecondsRemaining", () => {
+  it("projects remaining seconds from the balance left and the combined rate", () => {
+    // $7 left at a combined $17.50/hour burn -> 0.4h = 1440s
+    expect(estimateSecondsRemaining(7, 17.5)).toBe(1440);
+  });
+
+  it("clamps to zero once the balance remaining is exhausted", () => {
+    expect(estimateSecondsRemaining(0, 17.5)).toBe(0);
+  });
+
+  it("clamps to zero when the balance remaining is already negative", () => {
+    expect(estimateSecondsRemaining(-5, 17.5)).toBe(0);
+  });
+
+  it("returns zero for a zero combined rate rather than dividing by zero", () => {
+    expect(estimateSecondsRemaining(10, 0)).toBe(0);
   });
 });

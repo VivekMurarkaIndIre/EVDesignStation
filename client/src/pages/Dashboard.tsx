@@ -1,4 +1,4 @@
-import { Alert, Carousel, Divider, Empty, Grid, List, Segmented, Typography } from "antd";
+import { Alert, Carousel, Divider, Empty, Grid, List, Segmented, Select, Space, Typography } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SessionCard } from "../components/SessionCard";
@@ -8,6 +8,14 @@ import { useMySessions } from "../hooks/useMySessions";
 import { useStations } from "../hooks/useStations";
 
 const STOPPED_SESSIONS_PAGE_SIZE = 6;
+
+const AUTO_STOP_OPTIONS: { label: string; value: number | "none" }[] = [
+  { label: "No limit", value: "none" },
+  { label: "15 min", value: 15 },
+  { label: "30 min", value: 30 },
+  { label: "1 hr", value: 60 },
+  { label: "2 hr", value: 120 },
+];
 
 // How many ~320px-wide session cards comfortably fit side by side at each
 // breakpoint's content width. The carousel only slides when there are more
@@ -27,9 +35,10 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
   const { sessions, start, stop, pendingStationIds, pendingStopIds, error: sessionError } = useMySessions();
   const perView = useActiveSessionsPerView();
   const [stationView, setStationView] = useState<"Grid" | "Map">("Grid");
+  const [autoStopAfterMinutes, setAutoStopAfterMinutes] = useState<number | "none">("none");
 
   const handleStart = async (stationId: string) => {
-    const result = await start(stationId);
+    const result = await start(stationId, autoStopAfterMinutes === "none" ? undefined : autoStopAfterMinutes);
     if (result.status === 402) {
       navigate("/load-funds");
       return;
@@ -58,11 +67,23 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
         <Typography.Title level={4} style={{ margin: 0 }}>
           Stations
         </Typography.Title>
-        <Segmented
-          options={["Grid", "Map"]}
-          value={stationView}
-          onChange={(value) => setStationView(value as "Grid" | "Map")}
-        />
+        <Space wrap>
+          <Space size="small">
+            <Typography.Text type="secondary">Auto-stop new sessions after</Typography.Text>
+            <Select
+              size="small"
+              style={{ width: 110 }}
+              value={autoStopAfterMinutes}
+              onChange={setAutoStopAfterMinutes}
+              options={AUTO_STOP_OPTIONS}
+            />
+          </Space>
+          <Segmented
+            options={["Grid", "Map"]}
+            value={stationView}
+            onChange={(value) => setStationView(value as "Grid" | "Map")}
+          />
+        </Space>
       </div>
       {!stationsLoading &&
         (stationView === "Grid" ? (

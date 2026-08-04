@@ -1,8 +1,9 @@
 import type { Session } from "@ev/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getSession, startSession, stopSession } from "../api/client";
 
 const STORAGE_KEY = "ev-my-session-ids";
+const ACTIVE_SESSION_POLL_INTERVAL_MS = 5000;
 
 function loadStoredIds(): string[] {
   try {
@@ -28,6 +29,8 @@ export function useMySessions() {
   const [pendingStationIds, setPendingStationIds] = useState<Set<string>>(new Set());
   const [pendingStopIds, setPendingStopIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
 
   useEffect(() => {
     const ids = loadStoredIds();
@@ -44,11 +47,32 @@ export function useMySessions() {
     })();
   }, []);
 
-  const start = useCallback(async (stationId: string): Promise<{ ok: boolean; status?: number }> => {
+  // Sessions can now be auto-stopped server-side (balance depletion, or a
+  // chosen duration elapsing) without any action here, so active sessions
+  // need to be re-polled to pick up that change and the live chargeEstimate.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const activeIds = sessionsRef.current.filter((s) => s.endTime === null).map((s) => s.id);
+      if (activeIds.length === 0) {
+        return;
+      }
+      const updates = await Promise.all(activeIds.map((id) => getSession(id).catch(() => null)));
+      setSessions((prev) => {
+        const byId = new Map(updates.filter((s): s is Session => s !== null).map((s) => [s.id, s]));
+        return prev.map((s) => byId.get(s.id) ?? s);
+      });
+    }, ACTIVE_SESSION_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  const start = useCallback(async (
+    stationId: string,
+    autoStopAfterMinutes?: number,
+  ): Promise<{ ok: boolean; status?: number }> => {
     setError(null);
     setPendingStationIds((prev) => new Set(prev).add(stationId));
     try {
-      const session = await startSession(stationId);
+      const session = await startSession(stationId, autoStopAfterMinutes);
       setSessions((prev) => {
         const next = [session, ...prev];
         saveStoredIds(next.map((s) => s.id));

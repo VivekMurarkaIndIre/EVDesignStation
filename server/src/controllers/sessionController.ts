@@ -6,8 +6,8 @@ import type { SessionIdParams, StartSessionBody } from "../models/schemas.js";
 export function createSessionController(sessionService: SessionService) {
   return {
     startSession: asyncHandler(async (req: Request, res: Response) => {
-      const { stationId } = req.body as StartSessionBody;
-      const session = await sessionService.startSession(stationId);
+      const { stationId, autoStopAfterMinutes } = req.body as StartSessionBody;
+      const session = await sessionService.startSession(stationId, autoStopAfterMinutes);
       res.status(201).json(session);
     }),
 

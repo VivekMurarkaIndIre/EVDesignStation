@@ -19,6 +19,14 @@ export interface CostBreakdown {
   totalCost: number;
 }
 
+export type StopReason = "manual" | "insufficient_funds" | "duration_elapsed";
+
+export interface ChargeEstimate {
+  costSoFar: number;
+  ratePerHour: number;
+  secondsRemaining: number;
+}
+
 export interface Session {
   id: string;
   stationId: string;
@@ -27,6 +35,11 @@ export interface Session {
   energyUsedKwh: number | null; // null until stopped
   cost: number | null; // null until stopped
   costBreakdown: CostBreakdown | null; // null until stopped
+  autoStopAt: string | null; // ISO 8601, set only if the user chose a duration limit at start
+  stopReason: StopReason | null; // null while active
+  // Computed live on read for an active session, based on the current wallet
+  // balance and rate — not persisted by the repository.
+  chargeEstimate?: ChargeEstimate | null;
 }
 
 export interface RateSchedule {

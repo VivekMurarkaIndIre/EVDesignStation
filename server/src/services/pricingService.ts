@@ -7,7 +7,7 @@ function startOfUtcDay(ms: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-function isPeak(ms: number, schedule: RateSchedule): boolean {
+export function isPeak(ms: number, schedule: RateSchedule): boolean {
   const hour = new Date(ms).getUTCHours();
   return hour >= schedule.peakStartHour && hour < schedule.peakEndHour;
 }
@@ -23,7 +23,7 @@ function nextBoundaryAfter(ms: number, schedule: RateSchedule): number {
   return Math.min(...candidates.filter((candidate) => candidate > ms));
 }
 
-function round(value: number, decimals: number): number {
+export function round(value: number, decimals: number): number {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
 }
@@ -81,4 +81,27 @@ export function calculateCost(
     totalKwh: round(peakKwh + offPeakKwh, 3),
     totalCost: round(peakCost + offPeakCost, 2),
   };
+}
+
+/** The peak or off-peak rate in effect at `now`. */
+export function currentRatePerKwh(now: Date, rateSchedule: RateSchedule): number {
+  return isPeak(now.getTime(), rateSchedule) ? rateSchedule.peakRatePerKwh : rateSchedule.offPeakRatePerKwh;
+}
+
+/**
+ * Projects how much longer charging can continue on a remaining balance at
+ * a given combined burn rate, holding the current rate constant (i.e.
+ * ignoring any peak/off-peak boundary that might be crossed before the
+ * balance runs out). That's a deliberate approximation for a live "time
+ * left" estimate — good enough to warn a user, not meant to be as exact as
+ * the final calculateCost billing.
+ *
+ * `balanceRemaining` and `ratePerHour` are expected to already account for
+ * every session currently drawing on the same wallet, not just one — see
+ * sessionService.attachChargeEstimate, which is the caller that assembles
+ * those combined totals.
+ */
+export function estimateSecondsRemaining(balanceRemaining: number, ratePerHour: number): number {
+  const hoursRemaining = ratePerHour > 0 ? Math.max(0, balanceRemaining / ratePerHour) : 0;
+  return Math.round(hoursRemaining * 3600);
 }

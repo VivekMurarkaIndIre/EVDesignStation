@@ -130,6 +130,8 @@ describe("PATCH /sessions/:id/stop", () => {
       energyUsedKwh: null,
       cost: null,
       costBreakdown: null,
+      autoStopAt: null,
+      stopReason: null,
     });
 
     const res = await request(app).patch("/sessions/boundary-session/stop");
@@ -175,6 +177,67 @@ describe("PATCH /sessions/:id/stop", () => {
     expect(stop.status).toBe(200);
     expect(stop.body.cost).toBeGreaterThan(10);
     expect((await walletRepository.getWallet()).balance).toBeLessThan(0);
+  });
+});
+
+describe("charge estimate and auto-stop configuration", () => {
+  it("attaches a live chargeEstimate to an active session and null to a stopped one", async () => {
+    const fixedNow = new Date("2026-01-05T10:00:00Z");
+    const { app } = buildApp({ now: () => fixedNow, walletBalance: 10 });
+
+    const start = await request(app).post("/sessions").send({ stationId: "s1" }); // 50 kW, peak rate 0.35
+    expect(start.body.chargeEstimate).toEqual({ costSoFar: 0, ratePerHour: 17.5, secondsRemaining: 2057 });
+
+    const stop = await request(app).patch(`/sessions/${start.body.id}/stop`);
+    expect(stop.body.chargeEstimate).toBeNull();
+  });
+
+  it("recomputes chargeEstimate.secondsRemaining for every active session once another one starts drawing on the same wallet", async () => {
+    const fixedNow = new Date("2026-01-05T10:00:00Z");
+    const { app } = buildApp({ now: () => fixedNow, walletBalance: 10 });
+
+    const first = await request(app).post("/sessions").send({ stationId: "s1" }); // 50 kW -> $17.50/hr
+    expect(first.body.chargeEstimate.secondsRemaining).toBe(Math.round((10 / 17.5) * 3600));
+
+    const second = await request(app).post("/sessions").send({ stationId: "s2" }); // 20 kW -> $7/hr
+    const combinedRatePerHour = 17.5 + 7;
+    const combinedSecondsRemaining = Math.round((10 / combinedRatePerHour) * 3600);
+    expect(second.body.chargeEstimate.secondsRemaining).toBe(combinedSecondsRemaining);
+    // Adding a second draw on the shared wallet shortens it below what it
+    // projected when it was the only session running.
+    expect(combinedSecondsRemaining).toBeLessThan(Math.round((10 / 17.5) * 3600));
+
+    // Re-fetching the first session reflects the second session's draw too,
+    // even though nothing about the first session itself changed.
+    const firstAfter = await request(app).get(`/sessions/${first.body.id}`);
+    expect(firstAfter.body.chargeEstimate.secondsRemaining).toBe(combinedSecondsRemaining);
+  });
+
+  it("sets autoStopAt from autoStopAfterMinutes at start time", async () => {
+    const fixedNow = new Date("2026-01-05T10:00:00Z");
+    const { app } = buildApp({ now: () => fixedNow });
+
+    const res = await request(app).post("/sessions").send({ stationId: "s1", autoStopAfterMinutes: 30 });
+    expect(res.body.autoStopAt).toBe("2026-01-05T10:30:00.000Z");
+  });
+
+  it("leaves autoStopAt null when no duration is chosen", async () => {
+    const { app } = buildApp();
+    const res = await request(app).post("/sessions").send({ stationId: "s1" });
+    expect(res.body.autoStopAt).toBeNull();
+  });
+
+  it("rejects an out-of-range autoStopAfterMinutes", async () => {
+    const { app } = buildApp();
+    const res = await request(app).post("/sessions").send({ stationId: "s1", autoStopAfterMinutes: -5 });
+    expect(res.status).toBe(400);
+  });
+
+  it("records stopReason 'manual' for a normal stop", async () => {
+    const { app } = buildApp();
+    const start = await request(app).post("/sessions").send({ stationId: "s1" });
+    const stop = await request(app).patch(`/sessions/${start.body.id}/stop`);
+    expect(stop.body.stopReason).toBe("manual");
   });
 });
 

@@ -45,7 +45,7 @@ Open http://localhost:5173.
 Other useful scripts, all runnable from the repo root:
 
 ```bash
-npm run test:server    # 56 tests: pricing edge cases, repositories, API integration
+npm run test:server    # 76 tests: pricing edge cases, repositories, API integration, auto-stop monitor
 npm run build:server
 npm run build:client
 ```
@@ -143,6 +143,48 @@ each living where it belongs:
   `WalletTransaction` (visible on the **Transactions** tab), so the balance
   is always reconstructable from its history, not just a mutable number.
 
+**Low-balance warning & auto-stop (added beyond the original spec).** The
+wallet is a single balance shared by every active session, not a per-session
+hold — so "how long can I keep charging" and "should this stop now" are both
+questions about the *combined* draw of everyone currently plugged in, not
+any one session in isolation.
+
+- `sessionService.attachChargeEstimate` (in `services/sessionService.ts`)
+  computes a live `chargeEstimate` on every session response
+  (`{ costSoFar, ratePerHour, secondsRemaining }`, `null` once stopped).
+  `costSoFar`/`ratePerHour` are that session's own numbers, but
+  `secondsRemaining` is a shared countdown: `(wallet.balance − combined cost
+  so far of every active session) / combined rate of every active session`.
+  Starting a second session immediately shortens the first one's projected
+  time left, even though nothing about the first session changed — covered
+  by an integration test in `app.integration.test.ts`. The projection holds
+  the current peak/off-peak rate constant (it doesn't try to predict a rate
+  change before the balance runs out) — a deliberate approximation for a
+  live warning, not meant to be as exact as the final `calculateCost`
+  billing.
+- `services/sessionMonitor.ts` is the app's first timer: a 5-second
+  `setInterval` (started only from `index.ts`, never from `createApp`
+  itself, so the test suite's many direct `createApp()` calls never leak a
+  live interval) that re-checks every active session and auto-stops it via
+  the same `sessionService.stopSession` the manual endpoint uses. Two
+  triggers, each stamping a `stopReason` on the session:
+  - `insufficient_funds` — once the **combined** cost-so-far of every active
+    session reaches the wallet balance, *every* active session is stopped,
+    not just whichever one happened to tip it over. There's no per-session
+    allocation to point to, so once the pooled balance is gone, none of them
+    can legitimately keep drawing on it.
+  - `duration_elapsed` — a session can optionally be started with
+    `autoStopAfterMinutes` (wired up on the frontend as an "Auto-stop new
+    sessions after" selector on the Dashboard); `startSession` stamps a
+    fixed `autoStopAt` timestamp at start time, and the monitor stops the
+    session once `now >= autoStopAt`.
+- On the frontend, `SessionCard` shows "~X of charging left on current
+  balance" for an active session, escalating to a warning/error `Alert`
+  once projected time left drops under 10 minutes or hits zero; a stopped
+  card tags *why* it stopped when that wasn't a manual click. `useMySessions`
+  polls every 5s so a session this monitor auto-stops server-side is picked
+  up without the user touching anything.
+
 **Map view (added beyond the original spec).** The Stations section has a
 Grid/Map toggle (`antd Segmented`); both read the exact same `GET
 /stations` data, just displayed differently. The map (`StationMap.tsx`,
@@ -202,6 +244,14 @@ image assets).
   right at the "have exactly enough for one more" boundary could both pass
   the check. Same reasoning as everywhere else in this project: worth
   naming explicitly rather than leaving implicit.
+- **Auto-stop-on-depletion narrows, but doesn't close, the negative-balance
+  window above.** The session monitor only ticks every 5 seconds
+  (`sessionMonitor.ts`), and it stops sessions rather than preventing a
+  balance from being read as sufficient a moment before it wasn't — so a
+  session can still legitimately go a few seconds and a few cents past
+  zero before the next tick catches it. That's an acceptable bound for a
+  demo wallet; a real payment system would want a hard reservation instead
+  of a polling reconciliation.
 
 ## What would be added with more time
 
@@ -221,6 +271,13 @@ image assets).
 - Per-user wallets if login were ever added — right now there's exactly
   one wallet for the whole app, matching the no-login scope everywhere
   else.
+- A push-based auto-stop instead of the 5-second polling monitor (e.g.
+  WebSocket/SSE-driven), to close the small timing window noted above and
+  to notify the frontend the instant a session is auto-stopped instead of
+  waiting for its next 5s poll.
+- Scheduling a session to *start* automatically at a future time — today's
+  auto-stop-after-duration is start-now/stop-later only, by design (see the
+  low-balance & auto-stop section above).
 
 ## Deploying
 
