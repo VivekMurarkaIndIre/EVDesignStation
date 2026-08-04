@@ -6,12 +6,24 @@ body {
   margin: 0;
 }
 
-/* !important: antd injects its own Carousel theme via CSS-in-JS at
+/* antd's default Carousel dots are 24x3px near-flat bars, so even with
+   a correct dark color they read as barely-there hairlines on a light
+   background. Switched to small solid circles with strong contrast.
+   !important: antd injects its own Carousel theme via CSS-in-JS at
    runtime, after this stylesheet, so an equal-specificity override
    here loses the source-order tiebreak without it. */
+.ant-carousel .slick-dots {
+  bottom: -28px !important;
+}
+.ant-carousel .slick-dots li,
 .ant-carousel .slick-dots li button {
-  background: rgba(0, 0, 0, 0.3) !important;
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 50% !important;
+}
+.ant-carousel .slick-dots li button {
+  background: rgba(0, 0, 0, 0.35) !important;
 }
 .ant-carousel .slick-dots li.slick-active button {
-  background: rgba(0, 0, 0, 0.75) !important;
+  background: rgba(0, 0, 0, 0.85) !important;
 }
