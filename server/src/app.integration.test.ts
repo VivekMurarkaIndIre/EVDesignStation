@@ -43,6 +43,15 @@ describe("GET /stations", () => {
   });
 });
 
+describe("GET /rate-schedule", () => {
+  it("returns the configured rate schedule", async () => {
+    const { app } = buildApp();
+    const res = await request(app).get("/rate-schedule");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(SCHEDULE);
+  });
+});
+
 describe("POST /sessions", () => {
   it("starts a session at an available station and occupies it", async () => {
     const { app } = buildApp();

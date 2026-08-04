@@ -91,7 +91,7 @@ function App() {
         </Layout.Header>
         <Layout.Content style={{ padding: 24 }}>
           <Routes>
-            <Route path="/" element={<Dashboard refreshWallet={refreshWallet} />} />
+            <Route path="/" element={<Dashboard wallet={wallet} refreshWallet={refreshWallet} />} />
             <Route
               path="/transactions"
               element={<Transactions wallet={wallet} loading={walletLoading} />}

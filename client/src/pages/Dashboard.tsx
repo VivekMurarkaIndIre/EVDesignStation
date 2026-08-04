@@ -1,21 +1,16 @@
-import { Alert, Carousel, Divider, Empty, Grid, List, Segmented, Select, Space, Typography } from "antd";
+import type { Wallet } from "@ev/shared";
+import { Alert, Carousel, Divider, Empty, Grid, List, Segmented, Typography } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SessionCard } from "../components/SessionCard";
+import { StartSessionModal } from "../components/StartSessionModal";
 import { StationGrid } from "../components/StationGrid";
 import { StationMap } from "../components/StationMap";
 import { useMySessions } from "../hooks/useMySessions";
+import { useRateSchedule } from "../hooks/useRateSchedule";
 import { useStations } from "../hooks/useStations";
 
 const STOPPED_SESSIONS_PAGE_SIZE = 6;
-
-const AUTO_STOP_OPTIONS: { label: string; value: number | "none" }[] = [
-  { label: "No limit", value: "none" },
-  { label: "15 min", value: 15 },
-  { label: "30 min", value: 30 },
-  { label: "1 hr", value: 60 },
-  { label: "2 hr", value: 120 },
-];
 
 // How many ~320px-wide session cards comfortably fit side by side at each
 // breakpoint's content width. The carousel only slides when there are more
@@ -29,16 +24,21 @@ function useActiveSessionsPerView(): number {
   return 1;
 }
 
-export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
+export function Dashboard({ wallet, refreshWallet }: { wallet: Wallet | null; refreshWallet: () => void }) {
   const navigate = useNavigate();
   const { stations, loading: stationsLoading, error: stationsError, refresh: refreshStations } = useStations();
   const { sessions, start, stop, pendingStationIds, pendingStopIds, error: sessionError } = useMySessions();
+  const rateSchedule = useRateSchedule();
   const perView = useActiveSessionsPerView();
   const [stationView, setStationView] = useState<"Grid" | "Map">("Grid");
-  const [autoStopAfterMinutes, setAutoStopAfterMinutes] = useState<number | "none">("none");
+  const [startModalStationId, setStartModalStationId] = useState<string | null>(null);
+  const [confirmingStart, setConfirmingStart] = useState(false);
 
-  const handleStart = async (stationId: string) => {
-    const result = await start(stationId, autoStopAfterMinutes === "none" ? undefined : autoStopAfterMinutes);
+  const handleConfirmStart = async (stationId: string, autoStopAfterMinutes?: number) => {
+    setConfirmingStart(true);
+    const result = await start(stationId, autoStopAfterMinutes);
+    setConfirmingStart(false);
+    setStartModalStationId(null);
     if (result.status === 402) {
       navigate("/load-funds");
       return;
@@ -58,6 +58,7 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
   const activeSessions = sessions.filter((session) => session.endTime === null);
   const stoppedSessions = sessions.filter((session) => session.endTime !== null);
   const slidesToShow = Math.min(perView, Math.max(activeSessions.length, 1));
+  const startModalStation = startModalStationId ? (stationsById.get(startModalStationId) ?? null) : null;
 
   return (
     <>
@@ -67,30 +68,27 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
         <Typography.Title level={4} style={{ margin: 0 }}>
           Stations
         </Typography.Title>
-        <Space wrap>
-          <Space size="small">
-            <Typography.Text type="secondary">Auto-stop new sessions after</Typography.Text>
-            <Select
-              size="small"
-              style={{ width: 110 }}
-              value={autoStopAfterMinutes}
-              onChange={setAutoStopAfterMinutes}
-              options={AUTO_STOP_OPTIONS}
-            />
-          </Space>
-          <Segmented
-            options={["Grid", "Map"]}
-            value={stationView}
-            onChange={(value) => setStationView(value as "Grid" | "Map")}
-          />
-        </Space>
+        <Segmented
+          options={["Grid", "Map"]}
+          value={stationView}
+          onChange={(value) => setStationView(value as "Grid" | "Map")}
+        />
       </div>
       {!stationsLoading &&
         (stationView === "Grid" ? (
-          <StationGrid stations={stations} onStart={handleStart} pendingStationIds={pendingStationIds} />
+          <StationGrid stations={stations} onStart={setStartModalStationId} pendingStationIds={pendingStationIds} />
         ) : (
-          <StationMap stations={stations} onStart={handleStart} pendingStationIds={pendingStationIds} />
+          <StationMap stations={stations} onStart={setStartModalStationId} pendingStationIds={pendingStationIds} />
         ))}
+
+      <StartSessionModal
+        station={startModalStation}
+        wallet={wallet}
+        rateSchedule={rateSchedule}
+        confirming={confirmingStart}
+        onCancel={() => setStartModalStationId(null)}
+        onConfirm={handleConfirmStart}
+      />
 
       <Divider />
 

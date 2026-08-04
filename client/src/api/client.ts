@@ -1,4 +1,4 @@
-import type { Session, Station, Wallet } from "@ev/shared";
+import type { RateSchedule, Session, Station, Wallet } from "@ev/shared";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -43,4 +43,8 @@ export function getSession(sessionId: string): Promise<Session> {
 
 export function getWallet(): Promise<Wallet> {
   return request<Wallet>("/wallet");
+}
+
+export function getRateSchedule(): Promise<RateSchedule> {
+  return request<RateSchedule>("/rate-schedule");
 }

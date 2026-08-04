@@ -78,6 +78,14 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
     res.json({ status: "ok" });
   });
 
+  // Static config, not a resource with its own CRUD lifecycle — exposed
+  // read-only so the client can estimate a session's cost for a chosen
+  // duration before starting it, using the same peak/off-peak rule the
+  // server bills with (see pricingService.currentRatePerKwh).
+  app.get("/rate-schedule", (_req, res) => {
+    res.json(rateSchedule);
+  });
+
   app.use("/stations", createStationRouter(createStationController(stationService)));
   app.use("/sessions", createSessionRouter(createSessionController(sessionService), sessionActionRateLimiter));
   app.use("/wallet", createWalletRouter(createWalletController(walletService)));
