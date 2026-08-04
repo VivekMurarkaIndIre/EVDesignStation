@@ -26,3 +26,9 @@ export class ValidationError extends AppError {
     super(message, 400, details);
   }
 }
+
+export class InsufficientFundsError extends AppError {
+  constructor(message = "Insufficient wallet balance") {
+    super(message, 402);
+  }
+}

@@ -44,7 +44,7 @@ export function useMySessions() {
     })();
   }, []);
 
-  const start = useCallback(async (stationId: string) => {
+  const start = useCallback(async (stationId: string): Promise<{ ok: boolean; status?: number }> => {
     setError(null);
     setPendingStationIds((prev) => new Set(prev).add(stationId));
     try {
@@ -54,8 +54,15 @@ export function useMySessions() {
         saveStoredIds(next.map((s) => s.id));
         return next;
       });
+      return { ok: true };
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't start session.");
+      const status = err instanceof ApiError ? err.status : undefined;
+      // 402 (insufficient funds) is handled by redirecting to Load Funds
+      // instead of showing an error banner underneath that redirect.
+      if (status !== 402) {
+        setError(err instanceof ApiError ? err.message : "Couldn't start session.");
+      }
+      return { ok: false, status };
     } finally {
       setPendingStationIds((prev) => {
         const next = new Set(prev);

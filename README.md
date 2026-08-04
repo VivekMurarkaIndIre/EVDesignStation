@@ -7,11 +7,11 @@ spent in each, not a flat rate for the whole thing.
 
 ## Tech stack
 
-- **Frontend**: React + Vite + TypeScript, Ant Design (antd)
+- **Frontend**: React + Vite + TypeScript, Ant Design (antd), React Router
 - **Backend**: Express + TypeScript
 - **Data**: in-memory repositories behind interfaces (`StationRepository`,
-  `SessionRepository`) — swappable for a real DB later with no
-  controller/service changes
+  `SessionRepository`, `WalletRepository`) — swappable for a real DB later
+  with no controller/service changes
 - **Testing**: Vitest + Supertest
 - **Repo layout**: npm workspaces monorepo — `/client`, `/server`, `/shared`
 
@@ -44,7 +44,7 @@ Open http://localhost:5173.
 Other useful scripts, all runnable from the repo root:
 
 ```bash
-npm run test:server    # 44 tests: pricing edge cases, repositories, API integration
+npm run test:server    # 56 tests: pricing edge cases, repositories, API integration
 npm run build:server
 npm run build:client
 ```
@@ -109,12 +109,38 @@ the `GET` routes are unlimited); `trust proxy` enabled in production only,
 since Render/Railway sit behind a reverse proxy and rate limiting would
 otherwise key off the proxy's IP for every client.
 
+(One dependency-level judgment call: `react-router-dom` is pinned to
+`^7.18.2` despite `npm audit` still flagging one high-severity advisory
+against it — an RSC-mode CSRF bypass. This app only uses client-side
+`BrowserRouter`/`Routes`, never React Server Components or server actions,
+so that code path is unreachable here; every *other* currently-known
+react-router advisory, covering a much wider version range, is already
+fixed at 7.18.2. Downgrading to silence this one flag would reintroduce
+several real, applicable ones.)
+
 **Frontend state is plain React hooks**, not a state-management library —
 `useStations` polls `GET /stations` every 5s (plus an immediate refresh
 after any start/stop) and `useMySessions` tracks the sessions this browser
 started. The app's actual state surface is small enough that reaching for
 Redux/Zustand/React Query would be adding a dependency to solve a problem
 that doesn't exist yet.
+
+**Wallet (added beyond the original spec).** A single demo wallet — no
+per-user accounts — backed by the same repository-interface pattern as
+stations and sessions (`WalletRepository`, `GET /wallet`). Two rules,
+each living where it belongs:
+- *Starting* a session checks `wallet.balance > 0` before touching station
+  state, in `sessionService.startSession`. It's a coarse gate ("can they
+  charge at all"), not a hold on the eventual cost — that cost isn't known
+  until the session stops. Insufficient balance returns `402 Payment
+  Required`, which the frontend maps to a redirect to `/load-funds` instead
+  of a generic error banner.
+- *Stopping* a session always deducts the computed cost via
+  `WalletRepository.deduct`, unconditionally — energy already got
+  delivered, so this can't be refused the way starting can, even if it
+  pushes the balance negative. Every load and deduction is recorded as a
+  `WalletTransaction` (visible on the **Transactions** tab), so the balance
+  is always reconstructable from its history, not just a mutable number.
 
 ## Assumptions
 
@@ -145,7 +171,19 @@ that doesn't exist yet.
   works: if rates changed later, what you were already charged shouldn't.
 - **Rates and station data are hardcoded seed data**, per spec, held only
   in process memory — restarting the server resets everything to the
-  seeded state.
+  seeded state. The wallet's seeded starting balance ($10) works the same
+  way.
+- **The Load Funds page is intentionally a stub.** There's no real payment
+  processing in scope, so it's a static "under construction" page reachable
+  via the insufficient-funds redirect — it demonstrates the routing and
+  gating without a fake payment form pretending to be real.
+- **The wallet's insufficient-funds check is a plain read, not an atomic
+  compare-and-set** — there's a single global wallet with no concept of
+  reserving funds per session, so this has the same category of gap as the
+  session-stop concurrency note above: two simultaneous session-starts
+  right at the "have exactly enough for one more" boundary could both pass
+  the check. Same reasoning as everywhere else in this project: worth
+  naming explicitly rather than leaving implicit.
 
 ## What would be added with more time
 
@@ -159,6 +197,12 @@ that doesn't exist yet.
 - Real-time station status via WebSockets/SSE instead of 5s polling.
 - A "browse all active sessions" view — there's no list-all endpoint today
   (`GET /sessions/:id` only), matching the spec's literal API surface.
+- A real Load Funds flow (payment integration) and an atomic
+  compare-and-set for the wallet's insufficient-funds check, both noted
+  above.
+- Per-user wallets if login were ever added — right now there's exactly
+  one wallet for the whole app, matching the no-login scope everywhere
+  else.
 
 ## Deploying
 

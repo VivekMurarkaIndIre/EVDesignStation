@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { RateSchedule, Session } from "../models/index.js";
-import { ConflictError, NotFoundError } from "../middleware/errors.js";
+import { ConflictError, InsufficientFundsError, NotFoundError } from "../middleware/errors.js";
 import type { SessionRepository } from "../repositories/SessionRepository.js";
 import type { StationRepository } from "../repositories/StationRepository.js";
+import type { WalletRepository } from "../repositories/WalletRepository.js";
 import { calculateCost } from "./pricingService.js";
 
 export interface SessionService {
@@ -14,13 +15,22 @@ export interface SessionService {
 export function createSessionService(deps: {
   sessionRepository: SessionRepository;
   stationRepository: StationRepository;
+  walletRepository: WalletRepository;
   rateSchedule: RateSchedule;
   now?: () => Date;
 }): SessionService {
-  const { sessionRepository, stationRepository, rateSchedule, now = () => new Date() } = deps;
+  const { sessionRepository, stationRepository, walletRepository, rateSchedule, now = () => new Date() } = deps;
 
   return {
     async startSession(stationId) {
+      // Checked before touching station state: we don't know a session's
+      // cost until it stops, so this is a coarse "can they afford to charge
+      // at all" gate, not a hold on the eventual cost.
+      const wallet = await walletRepository.getWallet();
+      if (wallet.balance <= 0) {
+        throw new InsufficientFundsError();
+      }
+
       const occupied = await stationRepository.tryOccupy(stationId);
       if (!occupied) {
         const station = await stationRepository.findById(stationId);
@@ -73,7 +83,12 @@ export function createSessionService(deps: {
       };
 
       await stationRepository.release(session.stationId);
-      return sessionRepository.save(updated);
+      const saved = await sessionRepository.save(updated);
+      // Energy was already consumed, so this always goes through — even if
+      // it pushes the balance negative — rather than leaving a completed
+      // session unbilled.
+      await walletRepository.deduct(breakdown.totalCost, session.id);
+      return saved;
     },
 
     async getSession(sessionId) {

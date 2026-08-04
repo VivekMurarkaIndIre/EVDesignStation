@@ -7,19 +7,25 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { createSessionActionRateLimiter } from "./middleware/rateLimiter.js";
 import { InMemorySessionRepository } from "./repositories/InMemorySessionRepository.js";
 import { InMemoryStationRepository } from "./repositories/InMemoryStationRepository.js";
-import { RATE_SCHEDULE } from "./repositories/seed-data.js";
+import { InMemoryWalletRepository } from "./repositories/InMemoryWalletRepository.js";
+import { INITIAL_WALLET_BALANCE, INITIAL_WALLET_BALANCE_NOTE, RATE_SCHEDULE } from "./repositories/seed-data.js";
 import type { SessionRepository } from "./repositories/SessionRepository.js";
 import type { StationRepository } from "./repositories/StationRepository.js";
+import type { WalletRepository } from "./repositories/WalletRepository.js";
 import { createSessionController } from "./controllers/sessionController.js";
 import { createStationController } from "./controllers/stationController.js";
+import { createWalletController } from "./controllers/walletController.js";
 import { createSessionRouter } from "./routes/sessions.js";
 import { createStationRouter } from "./routes/stations.js";
+import { createWalletRouter } from "./routes/wallet.js";
 import { createSessionService } from "./services/sessionService.js";
 import { createStationService } from "./services/stationService.js";
+import { createWalletService } from "./services/walletService.js";
 
 export interface AppDependencies {
   stationRepository: StationRepository;
   sessionRepository: SessionRepository;
+  walletRepository: WalletRepository;
   rateSchedule: RateSchedule;
   now: () => Date;
   sessionActionRateLimiter: RequestHandler;
@@ -28,12 +34,21 @@ export interface AppDependencies {
 export function createApp(deps: Partial<AppDependencies> = {}) {
   const stationRepository = deps.stationRepository ?? new InMemoryStationRepository();
   const sessionRepository = deps.sessionRepository ?? new InMemorySessionRepository();
+  const walletRepository =
+    deps.walletRepository ?? new InMemoryWalletRepository(INITIAL_WALLET_BALANCE, INITIAL_WALLET_BALANCE_NOTE);
   const rateSchedule = deps.rateSchedule ?? RATE_SCHEDULE;
   const now = deps.now ?? (() => new Date());
   const sessionActionRateLimiter = deps.sessionActionRateLimiter ?? createSessionActionRateLimiter();
 
   const stationService = createStationService({ stationRepository });
-  const sessionService = createSessionService({ sessionRepository, stationRepository, rateSchedule, now });
+  const walletService = createWalletService({ walletRepository });
+  const sessionService = createSessionService({
+    sessionRepository,
+    stationRepository,
+    walletRepository,
+    rateSchedule,
+    now,
+  });
 
   const app = express();
 
@@ -55,6 +70,7 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
 
   app.use("/stations", createStationRouter(createStationController(stationService)));
   app.use("/sessions", createSessionRouter(createSessionController(sessionService), sessionActionRateLimiter));
+  app.use("/wallet", createWalletRouter(createWalletController(walletService)));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

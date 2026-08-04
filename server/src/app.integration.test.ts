@@ -5,6 +5,7 @@ import type { RateSchedule, Station } from "./models/index.js";
 import { createApp } from "./app.js";
 import { InMemorySessionRepository } from "./repositories/InMemorySessionRepository.js";
 import { InMemoryStationRepository } from "./repositories/InMemoryStationRepository.js";
+import { InMemoryWalletRepository } from "./repositories/InMemoryWalletRepository.js";
 
 const SCHEDULE: RateSchedule = {
   peakRatePerKwh: 0.35,
@@ -18,16 +19,18 @@ const STATIONS: Station[] = [
   { id: "s2", name: "Station 2", location: "Elsewhere", chargingSpeedKw: 20, status: "available" },
 ];
 
-function buildApp(overrides: { now?: () => Date } = {}) {
+function buildApp(overrides: { now?: () => Date; walletBalance?: number } = {}) {
   const stationRepository = new InMemoryStationRepository(STATIONS.map((s) => ({ ...s })));
   const sessionRepository = new InMemorySessionRepository();
+  const walletRepository = new InMemoryWalletRepository(overrides.walletBalance ?? 10);
   const app = createApp({
     stationRepository,
     sessionRepository,
+    walletRepository,
     rateSchedule: SCHEDULE,
     now: overrides.now,
   });
-  return { app, stationRepository, sessionRepository };
+  return { app, stationRepository, sessionRepository, walletRepository };
 }
 
 describe("GET /stations", () => {
@@ -72,6 +75,15 @@ describe("POST /sessions", () => {
     const { app } = buildApp();
     const res = await request(app).post("/sessions").send({});
     expect(res.status).toBe(400);
+  });
+
+  it("rejects starting a session when the wallet balance is insufficient, without occupying the station", async () => {
+    const { app } = buildApp({ walletBalance: 0 });
+    const res = await request(app).post("/sessions").send({ stationId: "s1" });
+    expect(res.status).toBe(402);
+
+    const stations = await request(app).get("/stations");
+    expect(stations.body.find((s: Station) => s.id === "s1").status).toBe("available");
   });
 });
 
@@ -132,6 +144,58 @@ describe("PATCH /sessions/:id/stop", () => {
     });
     expect(res.body.energyUsedKwh).toBe(200);
     expect(res.body.cost).toBe(53);
+  });
+
+  it("deducts the session cost from the wallet and records a transaction on stop", async () => {
+    const { app, walletRepository } = buildApp({ walletBalance: 10 });
+    const start = await request(app).post("/sessions").send({ stationId: "s2" });
+    const stop = await request(app).patch(`/sessions/${start.body.id}/stop`);
+
+    const wallet = await walletRepository.getWallet();
+    expect(wallet.balance).toBe(10 - stop.body.cost);
+    const deduction = wallet.transactions.find((t) => t.sessionId === start.body.id);
+    expect(deduction).toMatchObject({ type: "deduction", amount: stop.body.cost, sessionId: start.body.id });
+  });
+
+  it("still deducts and completes the stop even if the wallet balance goes negative", async () => {
+    // 2h at 50 kW is 100 kWh, which exceeds the $10 balance even at the
+    // cheaper off-peak rate ($18), so this holds regardless of which band
+    // the fixed clock lands in.
+    const fixedStart = new Date("2026-01-05T10:00:00Z");
+    const fixedEnd = new Date("2026-01-05T12:00:00Z");
+    let callCount = 0;
+    const { app, walletRepository } = buildApp({
+      walletBalance: 10,
+      now: () => (callCount++ === 0 ? fixedStart : fixedEnd),
+    });
+
+    const start = await request(app).post("/sessions").send({ stationId: "s1" });
+    const stop = await request(app).patch(`/sessions/${start.body.id}/stop`);
+
+    expect(stop.status).toBe(200);
+    expect(stop.body.cost).toBeGreaterThan(10);
+    expect((await walletRepository.getWallet()).balance).toBeLessThan(0);
+  });
+});
+
+describe("GET /wallet", () => {
+  it("returns the current balance and transaction history", async () => {
+    const { app } = buildApp({ walletBalance: 10 });
+    const res = await request(app).get("/wallet");
+    expect(res.status).toBe(200);
+    expect(res.body.balance).toBe(10);
+    expect(res.body.transactions).toHaveLength(1);
+    expect(res.body.transactions[0].type).toBe("load");
+  });
+
+  it("reflects a deduction after a session is stopped", async () => {
+    const { app } = buildApp({ walletBalance: 10 });
+    const start = await request(app).post("/sessions").send({ stationId: "s1" });
+    await request(app).patch(`/sessions/${start.body.id}/stop`);
+
+    const res = await request(app).get("/wallet");
+    expect(res.body.transactions).toHaveLength(2);
+    expect(res.body.transactions.some((t: { type: string }) => t.type === "deduction")).toBe(true);
   });
 });
 

@@ -7,6 +7,9 @@ export const RATE_SCHEDULE: RateSchedule = {
   peakEndHour: 20,
 };
 
+export const INITIAL_WALLET_BALANCE = 10;
+export const INITIAL_WALLET_BALANCE_NOTE = "Initial wallet funding";
+
 export const SEED_STATIONS: Station[] = [
   {
     id: "station-1",

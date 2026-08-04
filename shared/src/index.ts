@@ -33,3 +33,20 @@ export interface RateSchedule {
   peakStartHour: number; // e.g. 8 for 08:00
   peakEndHour: number; // e.g. 20 for 20:00
 }
+
+export type WalletTransactionType = "load" | "deduction";
+
+export interface WalletTransaction {
+  id: string;
+  type: WalletTransactionType;
+  amount: number; // always positive; type implies the sign
+  sessionId: string | null; // set for deductions tied to a session
+  balanceAfter: number;
+  createdAt: string; // ISO 8601
+  note: string;
+}
+
+export interface Wallet {
+  balance: number;
+  transactions: WalletTransaction[];
+}
