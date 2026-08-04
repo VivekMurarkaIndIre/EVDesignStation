@@ -3,7 +3,12 @@ services:
     name: ev-charging-server
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build:server
+    # --include=dev overrides npm's default behavior of skipping
+    # devDependencies when NODE_ENV=production is set in the environment
+    # (true here since it's set below) — typescript, @types/*, and vitest
+    # are devDependencies needed to type-check and build, even though
+    # they aren't needed at runtime.
+    buildCommand: npm install --include=dev && npm run build:server
     startCommand: npm run start:server
     healthCheckPath: /health
     envVars:
