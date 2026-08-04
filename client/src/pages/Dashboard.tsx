@@ -1,7 +1,9 @@
-import { Alert, Carousel, Divider, Empty, Grid, List, Typography } from "antd";
+import { Alert, Carousel, Divider, Empty, Grid, List, Segmented, Typography } from "antd";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SessionCard } from "../components/SessionCard";
 import { StationGrid } from "../components/StationGrid";
+import { StationMap } from "../components/StationMap";
 import { useMySessions } from "../hooks/useMySessions";
 import { useStations } from "../hooks/useStations";
 
@@ -24,6 +26,7 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
   const { stations, loading: stationsLoading, error: stationsError, refresh: refreshStations } = useStations();
   const { sessions, start, stop, pendingStationIds, pendingStopIds, error: sessionError } = useMySessions();
   const perView = useActiveSessionsPerView();
+  const [stationView, setStationView] = useState<"Grid" | "Map">("Grid");
 
   const handleStart = async (stationId: string) => {
     const result = await start(stationId);
@@ -51,10 +54,22 @@ export function Dashboard({ refreshWallet }: { refreshWallet: () => void }) {
     <>
       {errorMessage && <Alert type="error" message={errorMessage} showIcon closable style={{ marginBottom: 16 }} />}
 
-      <Typography.Title level={4}>Stations</Typography.Title>
-      {!stationsLoading && (
-        <StationGrid stations={stations} onStart={handleStart} pendingStationIds={pendingStationIds} />
-      )}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          Stations
+        </Typography.Title>
+        <Segmented
+          options={["Grid", "Map"]}
+          value={stationView}
+          onChange={(value) => setStationView(value as "Grid" | "Map")}
+        />
+      </div>
+      {!stationsLoading &&
+        (stationView === "Grid" ? (
+          <StationGrid stations={stations} onStart={handleStart} pendingStationIds={pendingStationIds} />
+        ) : (
+          <StationMap stations={stations} onStart={handleStart} pendingStationIds={pendingStationIds} />
+        ))}
 
       <Divider />
 

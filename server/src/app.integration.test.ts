@@ -15,8 +15,8 @@ const SCHEDULE: RateSchedule = {
 };
 
 const STATIONS: Station[] = [
-  { id: "s1", name: "Station 1", location: "Somewhere", chargingSpeedKw: 50, status: "available" },
-  { id: "s2", name: "Station 2", location: "Elsewhere", chargingSpeedKw: 20, status: "available" },
+  { id: "s1", name: "Station 1", location: "Somewhere", chargingSpeedKw: 50, status: "available", lat: 53.35, lng: -6.26 },
+  { id: "s2", name: "Station 2", location: "Elsewhere", chargingSpeedKw: 20, status: "available", lat: 53.34, lng: -6.25 },
 ];
 
 function buildApp(overrides: { now?: () => Date; walletBalance?: number } = {}) {

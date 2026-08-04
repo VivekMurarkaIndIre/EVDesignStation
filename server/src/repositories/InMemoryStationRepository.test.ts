@@ -3,7 +3,7 @@ import type { Station } from "../models/index.js";
 import { InMemoryStationRepository } from "./InMemoryStationRepository.js";
 
 const stations: Station[] = [
-  { id: "s1", name: "Station 1", location: "Somewhere", chargingSpeedKw: 50, status: "available" },
+  { id: "s1", name: "Station 1", location: "Somewhere", chargingSpeedKw: 50, status: "available", lat: 53.35, lng: -6.26 },
 ];
 
 describe("InMemoryStationRepository", () => {

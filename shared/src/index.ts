@@ -6,6 +6,8 @@ export interface Station {
   location: string;
   chargingSpeedKw: number;
   status: StationStatus;
+  lat: number;
+  lng: number;
 }
 
 export interface CostBreakdown {

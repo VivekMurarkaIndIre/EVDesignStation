@@ -7,7 +7,8 @@ spent in each, not a flat rate for the whole thing.
 
 ## Tech stack
 
-- **Frontend**: React + Vite + TypeScript, Ant Design (antd), React Router
+- **Frontend**: React + Vite + TypeScript, Ant Design (antd), React Router,
+  React Leaflet + OpenStreetMap tiles (map view — free, no API key)
 - **Backend**: Express + TypeScript
 - **Data**: in-memory repositories behind interfaces (`StationRepository`,
   `SessionRepository`, `WalletRepository`) — swappable for a real DB later
@@ -142,6 +143,18 @@ each living where it belongs:
   `WalletTransaction` (visible on the **Transactions** tab), so the balance
   is always reconstructable from its history, not just a mutable number.
 
+**Map view (added beyond the original spec).** The Stations section has a
+Grid/Map toggle (`antd Segmented`); both read the exact same `GET
+/stations` data, just displayed differently. The map (`StationMap.tsx`,
+React Leaflet + OpenStreetMap tiles) plots every station at its seeded
+lat/lng, all within Dublin, Ireland; clicking a pin opens a popup with the
+same info and Start Session action as a grid card. Occupied stations render
+with a grey pin instead of blue — both icons are inline SVG via
+`L.divIcon`, not Leaflet's default marker images, which need bundler-
+specific path patching to load correctly under Vite (a well-known Leaflet+
+bundler gotcha, sidestepped entirely by not depending on those default
+image assets).
+
 ## Assumptions
 
 - **Peak/off-peak boundaries are evaluated in UTC**, not server-local or
@@ -173,6 +186,11 @@ each living where it belongs:
   in process memory — restarting the server resets everything to the
   seeded state. The wallet's seeded starting balance ($10) works the same
   way.
+- **All 12 seeded stations are in Dublin, Ireland**, with real lat/lng for
+  recognizable landmarks (O'Connell Street, Dublin Airport, Grand Canal
+  Dock, etc.) — chosen so the map view has one coherent, real city to
+  center and bound itself on rather than scattered placeholder pins with
+  no relationship to each other.
 - **The Load Funds page is intentionally a stub.** There's no real payment
   processing in scope, so it's a static "under construction" page reachable
   via the insufficient-funds redirect — it demonstrates the routing and
