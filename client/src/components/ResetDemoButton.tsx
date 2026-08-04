@@ -37,6 +37,7 @@ export function ResetDemoButton() {
     >
       <Tooltip title="Reset demo data">
         <Button
+          id="tour-reset-button"
           type="text"
           icon={<ReloadOutlined style={{ color: "white" }} />}
           loading={resetting}

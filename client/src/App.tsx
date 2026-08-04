@@ -24,7 +24,14 @@ function App() {
   const navMenuItems = NAV_LINKS.map((item) =>
     isCompact
       ? { key: item.key, label: item.label, onClick: () => navigate(item.key) }
-      : { key: item.key, label: <Link to={item.key}>{item.label}</Link> },
+      : {
+          key: item.key,
+          label: (
+            <Link to={item.key} id={item.key === "/transactions" ? "tour-nav-transactions" : undefined}>
+              {item.label}
+            </Link>
+          ),
+        },
   );
 
   return (
@@ -49,6 +56,7 @@ function App() {
             {isCompact ? (
               <Dropdown menu={{ items: navMenuItems, selectedKeys }} trigger={["click"]}>
                 <Button
+                  id="tour-nav-transactions"
                   type="text"
                   icon={<MenuOutlined style={{ color: "white" }} />}
                   aria-label="Open navigation menu"
