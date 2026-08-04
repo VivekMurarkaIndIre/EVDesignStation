@@ -1,5 +1,7 @@
 import cors from "cors";
 import express, { type RequestHandler } from "express";
+import helmet from "helmet";
+import { config } from "./config.js";
 import type { RateSchedule } from "./models/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { createSessionActionRateLimiter } from "./middleware/rateLimiter.js";
@@ -34,7 +36,17 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
   const sessionService = createSessionService({ sessionRepository, stationRepository, rateSchedule, now });
 
   const app = express();
-  app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
+
+  // Render/Railway sit behind a reverse proxy; without this, express-rate-limit
+  // would key off the proxy's IP for every client instead of the real one.
+  if (config.isProduction) {
+    app.set("trust proxy", 1);
+  }
+
+  // The API's responses are meant to be fetched cross-origin by the deployed
+  // frontend, so the default same-origin resource policy has to be relaxed.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
