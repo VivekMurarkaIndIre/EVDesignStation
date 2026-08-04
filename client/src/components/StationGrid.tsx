@@ -1,5 +1,7 @@
 import type { Station } from "@ev/shared";
-import { Button, Card, Col, Row, Tag, Typography } from "antd";
+import { Button, Card, List, Tag, Typography } from "antd";
+
+const STATIONS_PAGE_SIZE = 8;
 
 export function StationGrid({
   stations,
@@ -11,9 +13,12 @@ export function StationGrid({
   pendingStationIds: Set<string>;
 }) {
   return (
-    <Row gutter={[16, 16]}>
-      {stations.map((station) => (
-        <Col key={station.id} xs={24} sm={12} md={8} lg={6}>
+    <List
+      dataSource={stations}
+      grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 4, xxl: 4 }}
+      pagination={stations.length > STATIONS_PAGE_SIZE ? { pageSize: STATIONS_PAGE_SIZE, showSizeChanger: false } : false}
+      renderItem={(station) => (
+        <List.Item>
           <Card
             title={station.name}
             extra={<Tag color={station.status === "available" ? "success" : "warning"}>{station.status}</Tag>}
@@ -33,8 +38,8 @@ export function StationGrid({
               Start Session
             </Button>
           </Card>
-        </Col>
-      ))}
-    </Row>
+        </List.Item>
+      )}
+    />
   );
 }
