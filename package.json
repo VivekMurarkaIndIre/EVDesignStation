@@ -1,6 +1,9 @@
 {
   "name": "ev-charging-station",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "shared",
     "server",
@@ -11,6 +14,7 @@
     "dev:client": "npm run dev -w client",
     "test:server": "npm run test -w server",
     "build:server": "npm run build -w server",
-    "build:client": "npm run build -w client"
+    "build:client": "npm run build -w client",
+    "start:server": "npm run start -w server"
   }
 }

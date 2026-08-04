@@ -308,13 +308,42 @@ expose to end users.
 
 ## Deploying
 
-- **Backend** → Render or Railway. Set `CORS_ORIGIN` to the deployed
-  frontend's exact origin and `NODE_ENV=production` (this makes
-  `CORS_ORIGIN` required — the app won't start without it, on purpose).
-- **Frontend** → Vercel or Netlify. Set `VITE_API_BASE_URL` to the deployed
-  backend's URL at build time.
-- **Free-tier cold starts**: if the backend is on Render's free tier, it
-  spins down after a period of inactivity. The first request after that
-  can take 30–60 seconds to respond while the container cold-starts — if
-  the deployed demo seems stuck on load, that's why; it recovers on its
-  own.
+Backend on **Render**, frontend on **Vercel**. The two need each other's
+URL, so deploy in this order rather than trying to do both at once:
+
+1. **Backend → Render.** Push this repo to GitHub, then in Render:
+   "New +" → "Blueprint" → point it at the repo. `render.yaml` at the repo
+   root already defines the service (`npm install && npm run build:server`
+   to build, `npm run start:server` to run, health check at `/health`) —
+   Render will prompt you to fill in the one env var marked `sync: false`
+   in that file, `CORS_ORIGIN`. Leave it as a placeholder
+   (`https://placeholder.vercel.app`) for now; you'll come back and fix it
+   in step 3. `NODE_ENV=production` is already set by the blueprint, which
+   means `CORS_ORIGIN` is *required* — the app fails fast at startup
+   without it, on purpose (see Architecture above). `PORT` is injected by
+   Render itself; don't set it. Once deployed, copy the service's public
+   URL (`https://<something>.onrender.com`).
+2. **Frontend → Vercel.** "Add New" → "Project" → import the same repo,
+   **without** overriding the root directory (leave it as the repo root —
+   `vercel.json` at the root already points the build at `client/` and
+   its output at `client/dist`, so importing the whole repo is what makes
+   the npm workspace resolve `@ev/shared` correctly). Before the first
+   deploy, add an environment variable `VITE_API_BASE_URL` set to the
+   Render URL from step 1 — Vite inlines this at *build* time, so it has
+   to be set before you build, not after. Deploy, then copy the resulting
+   `https://<something>.vercel.app` URL.
+3. **Back to Render**: update the `CORS_ORIGIN` env var to the real Vercel
+   URL from step 2 (exact origin, no trailing slash) and let it redeploy.
+   Until this step, the deployed frontend's requests will fail CORS —
+   that's expected, not a bug, for the same reason `CORS_ORIGIN` is
+   required at all.
+4. Open the Vercel URL and confirm the full flow works against the real
+   deployed backend: stations load, starting a session occupies a
+   station, stopping one shows the peak/off-peak cost split.
+
+**Free-tier cold starts**: Render's free web-service tier spins down after
+a period of inactivity. The first request after that can take 30–60
+seconds to respond while the container cold-starts — if the deployed demo
+seems stuck on load, that's why; it recovers on its own. (Render's and
+Vercel's free-tier terms can change — worth a quick check at signup time
+if anything here looks out of date.)
