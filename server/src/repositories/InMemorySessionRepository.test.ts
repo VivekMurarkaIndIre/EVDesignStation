@@ -52,4 +52,16 @@ describe("InMemorySessionRepository", () => {
     const active = await repo.findActive();
     expect(active.map((s) => s.id).sort()).toEqual(["active-1", "active-2"]);
   });
+
+  it("reset clears every session", async () => {
+    const repo = new InMemorySessionRepository();
+    await repo.save(makeSession({ id: "active-1" }));
+    await repo.save(makeSession({ id: "stopped-1", endTime: "2026-01-01T11:00:00.000Z" }));
+
+    await repo.reset();
+
+    expect(await repo.findById("active-1")).toBeUndefined();
+    expect(await repo.findById("stopped-1")).toBeUndefined();
+    expect(await repo.findActive()).toEqual([]);
+  });
 });

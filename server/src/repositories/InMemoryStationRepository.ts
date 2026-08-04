@@ -3,9 +3,11 @@ import type { StationRepository } from "./StationRepository.js";
 import { SEED_STATIONS } from "./seed-data.js";
 
 export class InMemoryStationRepository implements StationRepository {
+  private readonly seed: Station[];
   private readonly stations: Map<string, Station>;
 
   constructor(seed: Station[] = SEED_STATIONS) {
+    this.seed = seed;
     this.stations = new Map(seed.map((station) => [station.id, { ...station }]));
   }
 
@@ -36,5 +38,12 @@ export class InMemoryStationRepository implements StationRepository {
     const updated: Station = { ...station, status: "available" };
     this.stations.set(id, updated);
     return { ...updated };
+  }
+
+  async reset(): Promise<void> {
+    this.stations.clear();
+    for (const station of this.seed) {
+      this.stations.set(station.id, { ...station });
+    }
   }
 }

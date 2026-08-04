@@ -16,4 +16,7 @@ export interface StationRepository {
 
   /** Transitions a station back to available. Returns undefined if it doesn't exist. */
   release(id: string): Promise<Station | undefined>;
+
+  /** Restores every station to its seeded state (all available). Demo/testing convenience — see POST /reset. */
+  reset(): Promise<void>;
 }

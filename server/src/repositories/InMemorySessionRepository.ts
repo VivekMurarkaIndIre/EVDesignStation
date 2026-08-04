@@ -17,4 +17,8 @@ export class InMemorySessionRepository implements SessionRepository {
   async findActive(): Promise<Session[]> {
     return [...this.sessions.values()].filter((session) => session.endTime === null).map((session) => ({ ...session }));
   }
+
+  async reset(): Promise<void> {
+    this.sessions.clear();
+  }
 }

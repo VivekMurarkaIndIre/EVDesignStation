@@ -62,4 +62,25 @@ describe("InMemoryWalletRepository", () => {
     wallet.transactions[0].amount = 999;
     expect((await repo.getWallet()).transactions[0].amount).toBe(10);
   });
+
+  it("reset clears history and restores the balance to a fresh initial funding transaction", async () => {
+    const repo = new InMemoryWalletRepository(10);
+    await repo.deduct(4, "session-1");
+    await repo.load(2, "Top up");
+
+    await repo.reset(10, "Initial wallet funding");
+
+    const wallet = await repo.getWallet();
+    expect(wallet.balance).toBe(10);
+    expect(wallet.transactions).toHaveLength(1);
+    expect(wallet.transactions[0]).toMatchObject({ type: "load", amount: 10, note: "Initial wallet funding" });
+  });
+
+  it("reset with a zero balance clears history and leaves no transactions", async () => {
+    const repo = new InMemoryWalletRepository(10);
+    await repo.reset(0, "Initial wallet funding");
+    const wallet = await repo.getWallet();
+    expect(wallet.balance).toBe(0);
+    expect(wallet.transactions).toHaveLength(0);
+  });
 });

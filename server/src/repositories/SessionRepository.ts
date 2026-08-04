@@ -6,4 +6,7 @@ export interface SessionRepository {
   findById(id: string): Promise<Session | undefined>;
   /** All sessions with endTime === null. */
   findActive(): Promise<Session[]>;
+
+  /** Clears every session. Demo/testing convenience — see POST /reset. */
+  reset(): Promise<void>;
 }

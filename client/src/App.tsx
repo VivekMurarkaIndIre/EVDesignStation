@@ -1,6 +1,7 @@
 import { MenuOutlined, ThunderboltFilled, WalletOutlined } from "@ant-design/icons";
 import { Button, ConfigProvider, Dropdown, Grid, Layout, Menu, Popover, Space, Tooltip, Typography } from "antd";
 import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { ResetDemoButton } from "./components/ResetDemoButton";
 import { useWallet } from "./hooks/useWallet";
 import { Dashboard } from "./pages/Dashboard";
 import { LoadFunds } from "./pages/LoadFunds";
@@ -88,6 +89,8 @@ function App() {
               </Typography.Text>
             </Space>
           </Popover>
+
+          <ResetDemoButton />
         </Layout.Header>
         <Layout.Content style={{ padding: 24 }}>
           <Routes>

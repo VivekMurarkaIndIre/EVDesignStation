@@ -271,6 +271,30 @@ describe("GET /wallet", () => {
   });
 });
 
+describe("POST /reset", () => {
+  it("restores stations, clears sessions, and resets the wallet to its initial balance", async () => {
+    const { app } = buildApp({ walletBalance: 10 });
+
+    const start = await request(app).post("/sessions").send({ stationId: "s1" });
+    await request(app).patch(`/sessions/${start.body.id}/stop`);
+    await request(app).post("/sessions").send({ stationId: "s2" }); // left active
+
+    const res = await request(app).post("/reset");
+    expect(res.status).toBe(200);
+
+    const stations = await request(app).get("/stations");
+    expect(stations.body.every((s: Station) => s.status === "available")).toBe(true);
+
+    const stopped = await request(app).get(`/sessions/${start.body.id}`);
+    expect(stopped.status).toBe(404);
+
+    const wallet = await request(app).get("/wallet");
+    expect(wallet.body.balance).toBe(10);
+    expect(wallet.body.transactions).toHaveLength(1);
+    expect(wallet.body.transactions[0].type).toBe("load");
+  });
+});
+
 describe("GET /sessions/:id", () => {
   it("returns session detail including the peak/off-peak split after stopping", async () => {
     const { app } = buildApp();

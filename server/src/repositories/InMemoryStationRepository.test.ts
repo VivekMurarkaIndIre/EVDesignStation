@@ -55,4 +55,11 @@ describe("InMemoryStationRepository", () => {
     const repo = new InMemoryStationRepository(stations);
     expect(await repo.release("missing")).toBeUndefined();
   });
+
+  it("reset restores every station to its seeded available state", async () => {
+    const repo = new InMemoryStationRepository(stations);
+    await repo.tryOccupy("s1");
+    await repo.reset();
+    expect(await repo.findAll()).toEqual(stations);
+  });
 });

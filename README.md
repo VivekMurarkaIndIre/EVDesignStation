@@ -45,7 +45,7 @@ Open http://localhost:5173.
 Other useful scripts, all runnable from the repo root:
 
 ```bash
-npm run test:server    # 76 tests: pricing edge cases, repositories, API integration, auto-stop monitor
+npm run test:server    # 82 tests: pricing edge cases, repositories, API integration, auto-stop monitor
 npm run build:server
 npm run build:client
 ```
@@ -174,10 +174,18 @@ any one session in isolation.
     allocation to point to, so once the pooled balance is gone, none of them
     can legitimately keep drawing on it.
   - `duration_elapsed` — a session can optionally be started with
-    `autoStopAfterMinutes` (wired up on the frontend as an "Auto-stop new
-    sessions after" selector on the Dashboard); `startSession` stamps a
-    fixed `autoStopAt` timestamp at start time, and the monitor stops the
-    session once `now >= autoStopAt`.
+    `autoStopAfterMinutes`; `startSession` stamps a fixed `autoStopAt`
+    timestamp at start time, and the monitor stops the session once
+    `now >= autoStopAt`.
+- The duration is chosen per session, not as a standing setting: clicking
+  "Start Session" (grid card or map popup) opens `StartSessionModal`
+  first, which asks how long to charge for and shows what that's
+  estimated to cost at the current rate (`GET /rate-schedule` exposes the
+  static config so the client can mirror `pricingService.isPeak`'s exact
+  UTC-hour rule) before confirming. If the estimate exceeds the wallet
+  balance, a warning explains that upfront — the Start Session button
+  stays enabled regardless, since an underfunded session is exactly what
+  the `insufficient_funds` auto-stop above already handles gracefully.
 - On the frontend, `SessionCard` shows "~X of charging left on current
   balance" for an active session, escalating to a warning/error `Alert`
   once projected time left drops under 10 minutes or hits zero; a stopped
@@ -196,6 +204,25 @@ with a grey pin instead of blue — both icons are inline SVG via
 specific path patching to load correctly under Vite (a well-known Leaflet+
 bundler gotcha, sidestepped entirely by not depending on those default
 image assets).
+
+**Reset demo data (added beyond the original spec).** `POST /reset` wipes
+every piece of mutable state back to its seeded starting point in one call
+— all stations back to available, every session cleared, and the wallet
+reset to its $10 starting balance (recorded as a fresh "Initial wallet
+funding" transaction, same as the first boot). Each repository owns its
+own `reset()` (`StationRepository`, `SessionRepository`,
+`WalletRepository`), and `resetService` just calls all three — matching
+the interface-per-repository pattern used everywhere else, rather than
+reaching into their internals from one place. The frontend's reset button
+(top-right, next to the wallet balance) confirms via a `Popconfirm`
+warning before calling it, then clears the browser's own
+`localStorage`-tracked session ids and reloads the page — simplest way to
+guarantee every hook picks up the reset state instead of threading a
+"refresh everything" callback through each one. This exists purely so
+anyone testing the app (including the deployed demo, after other people
+have poked at it) can get back to a clean slate without restarting the
+server — it's a testing convenience, not a feature a real product would
+expose to end users.
 
 ## Assumptions
 

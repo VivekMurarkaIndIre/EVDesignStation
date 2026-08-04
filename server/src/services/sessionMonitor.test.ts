@@ -161,6 +161,7 @@ describe("sessionMonitor", () => {
         await sessionService.stopSession(session.id);
         return active;
       },
+      reset: () => realSessionRepository.reset(),
     };
 
     const monitor = createSessionMonitor({

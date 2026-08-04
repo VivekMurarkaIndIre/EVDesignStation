@@ -2,7 +2,8 @@ import type { Session } from "@ev/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getSession, startSession, stopSession } from "../api/client";
 
-const STORAGE_KEY = "ev-my-session-ids";
+export const MY_SESSIONS_STORAGE_KEY = "ev-my-session-ids";
+const STORAGE_KEY = MY_SESSIONS_STORAGE_KEY;
 const ACTIVE_SESSION_POLL_INTERVAL_MS = 5000;
 
 function loadStoredIds(): string[] {

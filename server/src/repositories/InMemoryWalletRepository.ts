@@ -11,6 +11,16 @@ export class InMemoryWalletRepository implements WalletRepository {
   private readonly transactions: WalletTransaction[] = [];
 
   constructor(initialBalance = 0, note = "Initial wallet funding") {
+    this.resetSync(initialBalance, note);
+  }
+
+  async reset(initialBalance: number, note: string): Promise<void> {
+    this.resetSync(initialBalance, note);
+  }
+
+  private resetSync(initialBalance: number, note: string): void {
+    this.transactions.length = 0;
+    this.balance = 0;
     if (initialBalance !== 0) {
       this.recordSync("load", initialBalance, null, note);
     }

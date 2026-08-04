@@ -48,3 +48,7 @@ export function getWallet(): Promise<Wallet> {
 export function getRateSchedule(): Promise<RateSchedule> {
   return request<RateSchedule>("/rate-schedule");
 }
+
+export function resetDemoData(): Promise<void> {
+  return request<void>("/reset", { method: "POST" });
+}

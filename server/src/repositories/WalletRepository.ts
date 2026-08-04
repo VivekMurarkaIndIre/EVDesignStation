@@ -13,4 +13,11 @@ export interface WalletRepository {
   deduct(amount: number, sessionId: string): Promise<WalletTransaction>;
 
   load(amount: number, note: string): Promise<WalletTransaction>;
+
+  /**
+   * Clears all transaction history and resets the balance to
+   * `initialBalance`, recorded as a fresh load transaction (same as the
+   * constructor's seeding). Demo/testing convenience — see POST /reset.
+   */
+  reset(initialBalance: number, note: string): Promise<void>;
 }

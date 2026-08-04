@@ -12,12 +12,15 @@ import { INITIAL_WALLET_BALANCE, INITIAL_WALLET_BALANCE_NOTE, RATE_SCHEDULE } fr
 import type { SessionRepository } from "./repositories/SessionRepository.js";
 import type { StationRepository } from "./repositories/StationRepository.js";
 import type { WalletRepository } from "./repositories/WalletRepository.js";
+import { createResetController } from "./controllers/resetController.js";
 import { createSessionController } from "./controllers/sessionController.js";
 import { createStationController } from "./controllers/stationController.js";
 import { createWalletController } from "./controllers/walletController.js";
+import { createResetRouter } from "./routes/reset.js";
 import { createSessionRouter } from "./routes/sessions.js";
 import { createStationRouter } from "./routes/stations.js";
 import { createWalletRouter } from "./routes/wallet.js";
+import { createResetService } from "./services/resetService.js";
 import { createSessionService, type SessionService } from "./services/sessionService.js";
 import { createStationService } from "./services/stationService.js";
 import { createWalletService } from "./services/walletService.js";
@@ -59,6 +62,13 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
     rateSchedule,
     now,
   });
+  const resetService = createResetService({
+    stationRepository,
+    sessionRepository,
+    walletRepository,
+    initialWalletBalance: INITIAL_WALLET_BALANCE,
+    initialWalletBalanceNote: INITIAL_WALLET_BALANCE_NOTE,
+  });
 
   const app = express();
 
@@ -89,6 +99,7 @@ export function createApp(deps: Partial<AppDependencies> = {}) {
   app.use("/stations", createStationRouter(createStationController(stationService)));
   app.use("/sessions", createSessionRouter(createSessionController(sessionService), sessionActionRateLimiter));
   app.use("/wallet", createWalletRouter(createWalletController(walletService)));
+  app.use("/reset", createResetRouter(createResetController(resetService), sessionActionRateLimiter));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
